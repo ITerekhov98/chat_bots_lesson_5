@@ -78,6 +78,23 @@ def add_product_to_cart(token, user_id, product_sku):
     response.raise_for_status()
     return response.json()
 
+def get_product_by_id(token, product_id):
+    url = f'https://api.moltin.com/v2/products/{product_id}'
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    return response.json()  
+
+def get_photo_by_id(token, photo_id):
+    url = f'https://api.moltin.com/v2/files/{photo_id}'
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    return response.json()['data']['link']['href']          
 
 def main():
     env = Env()
