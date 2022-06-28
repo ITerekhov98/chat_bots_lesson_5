@@ -8,7 +8,7 @@ from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update, InlineKey
 from telegram.ext import Updater, CommandHandler, MessageHandler, \
     Filters, ConversationHandler, RegexHandler, CallbackQueryHandler
 from functools import partial
-from main import get_all_products, get_access_token, get_product_by_id, get_photo_by_id
+from main import get_all_products, get_access_token, get_product_by_id, get_photo_by_id, add_product_to_cart, get_cart_items, get_cart
 
 
 def get_menu_keyboard(cms_token):
@@ -16,12 +16,29 @@ def get_menu_keyboard(cms_token):
     products_info = get_all_products(cms_token)
     for product in products_info['data']:
         keyboard.append([InlineKeyboardButton(product['name'], callback_data=product['id'])])
+    keyboard.append([InlineKeyboardButton('Корзина', callback_data='cart')])
     reply_markup = InlineKeyboardMarkup(keyboard)
     return reply_markup
 
 
+def get_user_cart(cms_token, user_id):
+    text = ''
+    cart_items = get_cart_items(cms_token, user_id)
+    product_template = '{}\r\n{}\r\n{} per kg\r\n{}kg in cart for{}\r\n\r\n'
+    for product in cart_items['data']:
+        text += product_template.format(
+            product['name'],
+            product['description'],
+            product['meta']['display_price']['with_tax']['unit']['formatted'],
+            product['quantity'],
+            product['meta']['display_price']['with_tax']['value']['formatted']
+        )
+    cart_info = get_cart(cms_token, user_id)['data']
+    text += f"Total: {cart_info['meta']['display_price']['with_tax']['formatted']}"
+    return text
+
+
 def start(update, context, cms_token):
-    keyboard = []
     greeting = 'Хочешь рыбы?'
     reply_markup = get_menu_keyboard(cms_token)
     update.message.reply_text(
@@ -34,7 +51,22 @@ def start(update, context, cms_token):
 def handle_menu(update, context, cms_token):
     query = update.callback_query
     query.answer()
-    keyboard = [[InlineKeyboardButton('Назад', callback_data='back_to_menu')]]
+    if query.data == 'cart':
+        text = get_user_cart(cms_token, update.effective_chat.id)
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=text,         
+        )
+        return 'HANDLE_MENU'
+    keyboard = [
+        [
+            InlineKeyboardButton('1кг', callback_data=f'{query.data}, 1'),
+            InlineKeyboardButton('5кг', callback_data=f'{query.data}, 5'),
+            InlineKeyboardButton('10кг', callback_data=f'{query.data}, 10')
+        ],
+        [InlineKeyboardButton('Назад', callback_data='back_to_menu')],
+        [InlineKeyboardButton('Корзина', callback_data='cart')]
+    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     product_info = get_product_by_id(cms_token, query.data)['data']
     photo = get_photo_by_id(cms_token, product_info['relationships']['main_image']['data']['id'])
@@ -54,9 +86,20 @@ def handle_description(update, context, cms_token):
             text=greeting,
             reply_markup=reply_markup            
         )
-    return 'HANDLE_MENU'
+        return 'HANDLE_MENU'
+    elif query.data == 'cart':
+        text = get_user_cart(cms_token, update.effective_chat.id)
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=text,         
+        )
+        return 'HANDLE_DESCRIPTION'
+    else:
+        product_id, quantity = query.data.split(', ') 
+        add_product_to_cart(cms_token, update.effective_chat.id, product_id, int(quantity))
+    return 'HANDLE_DESCRIPTION'
 
-    
+
 def handle_users_reply(update, context, redis_db, cms_token=None):
     if update.message:
         user_reply = update.message.text

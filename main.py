@@ -60,8 +60,7 @@ def get_cart_items(token, user_id):
     response.raise_for_status()
     return response.json()    
 
-
-def add_product_to_cart(token, user_id, product_sku):
+def add_product_to_cart(token, user_id, product_id, quantity):
     url = f'https://api.moltin.com/v2/carts/{user_id}/items'
     headers = {
         'Authorization': f'Bearer {token}',
@@ -69,14 +68,15 @@ def add_product_to_cart(token, user_id, product_sku):
     }
     json_data = {
         'data': {
-            'sku': product_sku,
+            'id': product_id,
             'type': 'cart_item',
-            'quantity': 1
+            'quantity': quantity
         }
     }
     response = requests.post(url, headers=headers, json=json_data)
     response.raise_for_status()
     return response.json()
+
 
 def get_product_by_id(token, product_id):
     url = f'https://api.moltin.com/v2/products/{product_id}'
@@ -102,3 +102,4 @@ def main():
     client_id = env.str('ELASTIC_PATH_CLIENT_ID')
     client_secret = env.str('ELASTIC_PATH_CLIENT_SECRET')
     cms_token = get_access_token(client_id, client_secret)
+
