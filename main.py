@@ -1,5 +1,10 @@
+from urllib import response
 import requests
 from environs import Env
+import time 
+
+
+
 
 
 def get_access_token(client_id, client_secret):
@@ -107,6 +112,23 @@ def remove_product_from_cart(token, user_id, product_id):
     response = requests.delete(url, headers=headers)
     response.raise_for_status()
     return 
+
+
+def create_customer(token, user_id, user_email):
+    url = 'https://api.moltin.com/v2/customers'
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
+    json_data = {
+        'data': {
+            'type': 'customer',
+            'name': user_id,
+            'email': user_email
+        }
+    }
+    response = requests.post(url ,headers=headers, json=json_data)
+    response.raise_for_status()
+    return response.json()
 
 
 def main():

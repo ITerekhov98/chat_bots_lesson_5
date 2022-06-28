@@ -1,6 +1,6 @@
 from functools import partial
 from urllib import response
-
+from email_validate import validate
 import redis
 from environs import Env
 from enum import Enum
@@ -8,7 +8,7 @@ from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update, InlineKey
 from telegram.ext import Updater, CommandHandler, MessageHandler, \
     Filters, ConversationHandler, RegexHandler, CallbackQueryHandler
 from functools import partial
-from main import get_all_products, get_access_token, get_product_by_id, get_photo_by_id, add_product_to_cart, get_cart_items, get_cart, remove_product_from_cart
+from main import get_all_products, get_access_token, get_product_by_id, get_photo_by_id, add_product_to_cart, get_cart_items, get_cart, remove_product_from_cart, create_customer
 
 
 def get_menu_keyboard(cms_token):
@@ -39,6 +39,7 @@ def send_user_cart(update, context, cms_token):
     text += f"Total: {cart_info['meta']['display_price']['with_tax']['formatted']}"
 
     keyboard.append([InlineKeyboardButton('В меню', callback_data='menu')])
+    keyboard.append([InlineKeyboardButton('Оплатить', callback_data='payment')])
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     context.bot.send_message(
@@ -48,6 +49,18 @@ def send_user_cart(update, context, cms_token):
     )
     return 'HANDLE_CART'
 
+
+def waiting_email(update, context, cms_token):
+    if validate(update.message.text, check_blacklist=False, check_dns=False, check_smtp=False):
+        create_customer(cms_token, str(update.effective_chat.id), update.message.text)
+        update.message.reply_text(
+            text='Спасибо что купили рыбу',
+        )
+        return 'START'
+    update.message.reply_text(
+        text='Введённый email некорректен. Попробуйте ещё раз',
+    )
+    return 'WAITING_EMAIL'
 
 def start(update, context, cms_token):
     greeting = 'Хочешь рыбы?'
@@ -71,6 +84,12 @@ def handle_cart(update, context, cms_token):
             reply_markup=reply_markup
         )  
         return 'HANDLE_MENU'
+    elif query.data == 'payment':
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text='Введите, пожалуйста ваш email, с вами свяжутся рыбные специалисты',
+        )
+        return 'WAITING_EMAIL'
     else:
         product_id = query.data
         remove_product_from_cart(cms_token, update.effective_chat.id, product_id)
@@ -120,7 +139,7 @@ def handle_description(update, context, cms_token):
     return 'HANDLE_DESCRIPTION'
 
 
-def handle_users_reply(update, context, redis_db, cms_token=None):
+def handle_users_reply(update, context, redis_db, cms_token):
     if update.message:
         user_reply = update.message.text
         chat_id = update.message.chat_id
@@ -138,7 +157,8 @@ def handle_users_reply(update, context, redis_db, cms_token=None):
         'START': start,
         'HANDLE_MENU': handle_menu,
         'HANDLE_DESCRIPTION': handle_description,
-        'HANDLE_CART': handle_cart
+        'HANDLE_CART': handle_cart,
+        'WAITING_EMAIL': waiting_email
     }
     state_handler = states_functions[user_state]
     try:
@@ -165,8 +185,7 @@ def main():
     dispatcher = updater.dispatcher
     dispatcher.add_handler(CallbackQueryHandler(partial(handle_users_reply, redis_db=redis_db, cms_token=cms_token)))
     dispatcher.add_handler(CommandHandler('start', partial(handle_users_reply, redis_db=redis_db, cms_token=cms_token)))
-    dispatcher.add_handler(CallbackQueryHandler(partial(handle_users_reply, redis_db=redis_db)))
-    dispatcher.add_handler(MessageHandler(Filters.text, partial(handle_users_reply, redis_db=redis_db)))
+    dispatcher.add_handler(MessageHandler(Filters.text, partial(handle_users_reply, redis_db=redis_db, cms_token=cms_token)))
 
     updater.start_polling()
 
