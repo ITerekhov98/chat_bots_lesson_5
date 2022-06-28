@@ -7,7 +7,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, \
                          Filters, CallbackQueryHandler
 
-from main import CmsAuthentication, get_all_products, get_product_by_id, \
+from cms_lib import CmsAuthentication, get_all_products, get_product_by_id, \
                  get_photo_by_id, add_product_to_cart, get_cart_items, \
                  get_cart, remove_product_from_cart, create_customer
 
