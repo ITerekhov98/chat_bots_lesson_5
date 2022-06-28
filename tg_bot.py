@@ -11,13 +11,19 @@ from functools import partial
 from main import get_all_products, get_access_token, get_product_by_id, get_photo_by_id
 
 
-def start(update, context, cms_token):
+def get_menu_keyboard(cms_token):
     keyboard = []
-    greeting = 'Хочешь рыбы?'
     products_info = get_all_products(cms_token)
     for product in products_info['data']:
         keyboard.append([InlineKeyboardButton(product['name'], callback_data=product['id'])])
     reply_markup = InlineKeyboardMarkup(keyboard)
+    return reply_markup
+
+
+def start(update, context, cms_token):
+    keyboard = []
+    greeting = 'Хочешь рыбы?'
+    reply_markup = get_menu_keyboard(cms_token)
     update.message.reply_text(
         text=greeting,
         reply_markup=reply_markup
@@ -28,14 +34,29 @@ def start(update, context, cms_token):
 def handle_menu(update, context, cms_token):
     query = update.callback_query
     query.answer()
+    keyboard = [[InlineKeyboardButton('Назад', callback_data='back_to_menu')]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
     product_info = get_product_by_id(cms_token, query.data)['data']
     photo = get_photo_by_id(cms_token, product_info['relationships']['main_image']['data']['id'])
     response_to_user = f"{product_info['name']}\r\n{product_info['meta']['display_price']['with_tax']['formatted']} per kg \r\n {product_info['description']}"
-    context.bot.send_photo(chat_id=update.effective_chat.id, photo=photo, caption=response_to_user)
+    context.bot.send_photo(chat_id=update.effective_chat.id, photo=photo, caption=response_to_user, reply_markup=reply_markup)
     context.bot.delete_message(chat_id=update.effective_chat.id, message_id=query.message.message_id)
-    return 'START'
+    return 'HANDLE_DESCRIPTION'
 
+def handle_description(update, context, cms_token):
+    query = update.callback_query
+    query.answer()
+    if query.data == 'back_to_menu':
+        greeting = 'Хочешь рыбы?'
+        reply_markup = get_menu_keyboard(cms_token)
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=greeting,
+            reply_markup=reply_markup            
+        )
+    return 'HANDLE_MENU'
 
+    
 def handle_users_reply(update, context, redis_db, cms_token=None):
     if update.message:
         user_reply = update.message.text
@@ -53,6 +74,7 @@ def handle_users_reply(update, context, redis_db, cms_token=None):
     states_functions = {
         'START': start,
         'HANDLE_MENU': handle_menu,
+        'HANDLE_DESCRIPTION': handle_description
     }
     state_handler = states_functions[user_state]
     try:
@@ -75,7 +97,6 @@ def main():
     client_id = env.str('ELASTIC_PATH_CLIENT_ID')
     client_secret = env.str('ELASTIC_PATH_CLIENT_SECRET')
     cms_token = get_access_token(client_id, client_secret)
-
     updater = Updater(env.str('TG_BOT_TOKEN'))
     dispatcher = updater.dispatcher
     dispatcher.add_handler(CallbackQueryHandler(partial(handle_users_reply, redis_db=redis_db, cms_token=cms_token)))
