@@ -8,7 +8,7 @@ from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update, InlineKey
 from telegram.ext import Updater, CommandHandler, MessageHandler, \
     Filters, ConversationHandler, RegexHandler, CallbackQueryHandler
 from functools import partial
-from main import get_all_products, get_access_token, get_product_by_id, get_photo_by_id, add_product_to_cart, get_cart_items, get_cart, remove_product_from_cart, create_customer
+from main import get_all_products, CmsAuthentication, get_product_by_id, get_photo_by_id, add_product_to_cart, get_cart_items, get_cart, remove_product_from_cart, create_customer
 
 
 def get_menu_keyboard(cms_token):
@@ -22,6 +22,7 @@ def get_menu_keyboard(cms_token):
 
 
 def send_user_cart(update, context, cms_token):
+    query = update.callback_query
     keyboard = []
     text = ''
     cart_items = get_cart_items(cms_token, update.effective_chat.id)
@@ -47,6 +48,7 @@ def send_user_cart(update, context, cms_token):
         text=text,
         reply_markup=reply_markup     
     )
+    context.bot.delete_message(chat_id=update.effective_chat.id, message_id=query.message.message_id)
     return 'HANDLE_CART'
 
 
@@ -83,6 +85,7 @@ def handle_cart(update, context, cms_token):
             text=greeting,
             reply_markup=reply_markup
         )  
+        context.bot.delete_message(chat_id=update.effective_chat.id, message_id=query.message.message_id)
         return 'HANDLE_MENU'
     elif query.data == 'payment':
         context.bot.send_message(
@@ -139,7 +142,7 @@ def handle_description(update, context, cms_token):
     return 'HANDLE_DESCRIPTION'
 
 
-def handle_users_reply(update, context, redis_db, cms_token):
+def handle_users_reply(update, context, redis_db, cms_auth):
     if update.message:
         user_reply = update.message.text
         chat_id = update.message.chat_id
@@ -161,11 +164,10 @@ def handle_users_reply(update, context, redis_db, cms_token):
         'WAITING_EMAIL': waiting_email
     }
     state_handler = states_functions[user_state]
-    try:
-        next_state = state_handler(update, context, cms_token)
-        redis_db.set(chat_id, next_state)
-    except Exception as err:
-        print(err)
+    cms_token = cms_auth.get_access_token()
+    next_state = state_handler(update, context, cms_token)
+    redis_db.set(chat_id, next_state)
+
 
 
 def main():
@@ -180,12 +182,12 @@ def main():
     )
     client_id = env.str('ELASTIC_PATH_CLIENT_ID')
     client_secret = env.str('ELASTIC_PATH_CLIENT_SECRET')
-    cms_token = get_access_token(client_id, client_secret)
+    cms_auth = CmsAuthentication(client_id, client_secret)
     updater = Updater(env.str('TG_BOT_TOKEN'))
     dispatcher = updater.dispatcher
-    dispatcher.add_handler(CallbackQueryHandler(partial(handle_users_reply, redis_db=redis_db, cms_token=cms_token)))
-    dispatcher.add_handler(CommandHandler('start', partial(handle_users_reply, redis_db=redis_db, cms_token=cms_token)))
-    dispatcher.add_handler(MessageHandler(Filters.text, partial(handle_users_reply, redis_db=redis_db, cms_token=cms_token)))
+    dispatcher.add_handler(CallbackQueryHandler(partial(handle_users_reply, redis_db=redis_db, cms_auth=cms_auth)))
+    dispatcher.add_handler(CommandHandler('start', partial(handle_users_reply, redis_db=redis_db, cms_auth=cms_auth)))
+    dispatcher.add_handler(MessageHandler(Filters.text, partial(handle_users_reply, redis_db=redis_db, cms_auth=cms_auth)))
 
     updater.start_polling()
 

@@ -4,19 +4,28 @@ from environs import Env
 import time 
 
 
-
-
-
-def get_access_token(client_id, client_secret):
-    url = 'https://api.moltin.com/oauth/access_token'
-    data = {
-        'client_id': client_id,
-        'client_secret': client_secret,
-        'grant_type': 'client_credentials',
-    }
-    response = requests.post(url, data=data)
-    response.raise_for_status()
-    return response.json()['access_token']
+class CmsAuthentication:
+    def __init__(self, client_id, client_secret) -> None:
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.token_expiration = 0
+        self._token = ''
+    
+    def get_access_token(self):
+        if self.token_expiration - time.time() >= 60:
+            return self._token
+        url = 'https://api.moltin.com/oauth/access_token'
+        data = {
+            'client_id': self.client_id,
+            'client_secret': self.client_secret,
+            'grant_type': 'client_credentials',
+        }
+        response = requests.post(url, data=data)
+        response.raise_for_status()
+        response_deserealized = response.json()
+        self.token_expiration = response_deserealized['expires']
+        self._token = response_deserealized['access_token']
+        return self._token
 
 
 def get_all_products(token):
