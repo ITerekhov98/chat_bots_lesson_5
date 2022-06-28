@@ -60,6 +60,8 @@ def get_cart_items(token, user_id):
     response.raise_for_status()
     return response.json()    
 
+
+
 def add_product_to_cart(token, user_id, product_id, quantity):
     url = f'https://api.moltin.com/v2/carts/{user_id}/items'
     headers = {
@@ -96,10 +98,22 @@ def get_photo_by_id(token, photo_id):
     response.raise_for_status()
     return response.json()['data']['link']['href']          
 
+
+def remove_product_from_cart(token, user_id, product_id):
+    url = f'https://api.moltin.com/v2/carts/{user_id}/items/{product_id}'
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
+    response = requests.delete(url, headers=headers)
+    response.raise_for_status()
+    return 
+
+
 def main():
     env = Env()
     env.read_env()
     client_id = env.str('ELASTIC_PATH_CLIENT_ID')
     client_secret = env.str('ELASTIC_PATH_CLIENT_SECRET')
     cms_token = get_access_token(client_id, client_secret)
+
 

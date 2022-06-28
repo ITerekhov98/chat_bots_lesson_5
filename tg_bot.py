@@ -8,7 +8,7 @@ from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update, InlineKey
 from telegram.ext import Updater, CommandHandler, MessageHandler, \
     Filters, ConversationHandler, RegexHandler, CallbackQueryHandler
 from functools import partial
-from main import get_all_products, get_access_token, get_product_by_id, get_photo_by_id, add_product_to_cart, get_cart_items, get_cart
+from main import get_all_products, get_access_token, get_product_by_id, get_photo_by_id, add_product_to_cart, get_cart_items, get_cart, remove_product_from_cart
 
 
 def get_menu_keyboard(cms_token):
@@ -21,9 +21,10 @@ def get_menu_keyboard(cms_token):
     return reply_markup
 
 
-def get_user_cart(cms_token, user_id):
+def send_user_cart(update, context, cms_token):
+    keyboard = []
     text = ''
-    cart_items = get_cart_items(cms_token, user_id)
+    cart_items = get_cart_items(cms_token, update.effective_chat.id)
     product_template = '{}\r\n{}\r\n{} per kg\r\n{}kg in cart for{}\r\n\r\n'
     for product in cart_items['data']:
         text += product_template.format(
@@ -33,9 +34,19 @@ def get_user_cart(cms_token, user_id):
             product['quantity'],
             product['meta']['display_price']['with_tax']['value']['formatted']
         )
-    cart_info = get_cart(cms_token, user_id)['data']
+        keyboard.append([InlineKeyboardButton(f" Удалить {product['name']}", callback_data=product['id'])])
+    cart_info = get_cart(cms_token, update.effective_chat.id)['data']
     text += f"Total: {cart_info['meta']['display_price']['with_tax']['formatted']}"
-    return text
+
+    keyboard.append([InlineKeyboardButton('В меню', callback_data='menu')])
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=text,
+        reply_markup=reply_markup     
+    )
+    return 'HANDLE_CART'
 
 
 def start(update, context, cms_token):
@@ -48,16 +59,30 @@ def start(update, context, cms_token):
     return 'HANDLE_MENU'
 
 
+def handle_cart(update, context, cms_token):
+    query = update.callback_query
+    query.answer()
+    if query.data == 'menu':
+        greeting = 'Хочешь рыбы?'
+        reply_markup = get_menu_keyboard(cms_token)
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=greeting,
+            reply_markup=reply_markup
+        )  
+        return 'HANDLE_MENU'
+    else:
+        product_id = query.data
+        remove_product_from_cart(cms_token, update.effective_chat.id, product_id)
+        return send_user_cart(update, context, cms_token)
+
+
 def handle_menu(update, context, cms_token):
     query = update.callback_query
     query.answer()
     if query.data == 'cart':
-        text = get_user_cart(cms_token, update.effective_chat.id)
-        context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=text,         
-        )
-        return 'HANDLE_MENU'
+        return send_user_cart(update, context, cms_token)
+
     keyboard = [
         [
             InlineKeyboardButton('1кг', callback_data=f'{query.data}, 1'),
@@ -88,12 +113,7 @@ def handle_description(update, context, cms_token):
         )
         return 'HANDLE_MENU'
     elif query.data == 'cart':
-        text = get_user_cart(cms_token, update.effective_chat.id)
-        context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=text,         
-        )
-        return 'HANDLE_DESCRIPTION'
+        return send_user_cart(update, context, cms_token)
     else:
         product_id, quantity = query.data.split(', ') 
         add_product_to_cart(cms_token, update.effective_chat.id, product_id, int(quantity))
@@ -117,7 +137,8 @@ def handle_users_reply(update, context, redis_db, cms_token=None):
     states_functions = {
         'START': start,
         'HANDLE_MENU': handle_menu,
-        'HANDLE_DESCRIPTION': handle_description
+        'HANDLE_DESCRIPTION': handle_description,
+        'HANDLE_CART': handle_cart
     }
     state_handler = states_functions[user_state]
     try:
