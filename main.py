@@ -1,16 +1,15 @@
-from urllib import response
+import time
+
 import requests
-from environs import Env
-import time 
 
 
 class CmsAuthentication:
-    def __init__(self, client_id, client_secret) -> None:
+    def __init__(self, client_id: str, client_secret: str) -> None:
         self.client_id = client_id
         self.client_secret = client_secret
         self.token_expiration = 0
         self._token = ''
-    
+
     def get_access_token(self):
         if self.token_expiration - time.time() >= 60:
             return self._token
@@ -28,7 +27,7 @@ class CmsAuthentication:
         return self._token
 
 
-def get_all_products(token):
+def get_all_products(token: str):
     url = 'https://api.moltin.com/v2/products'
     headers = {
         'Authorization': f'Bearer {token}'
@@ -38,7 +37,7 @@ def get_all_products(token):
     return response.json()
 
 
-def create_cart(token, tg_user_id):
+def create_cart(token: str, tg_user_id: str):
     url = 'https://api.moltin.com/v2/carts'
     headers = {
         'Authorization': f'Bearer {token}',
@@ -55,7 +54,7 @@ def create_cart(token, tg_user_id):
     return response.json()
 
 
-def get_cart(token, user_id):
+def get_cart(token: str, user_id: str):
     url = f'https://api.moltin.com/v2/carts/{user_id}'
     headers = {
         'Authorization': f'Bearer {token}'
@@ -65,18 +64,17 @@ def get_cart(token, user_id):
     return response.json()
 
 
-def get_cart_items(token, user_id):
+def get_cart_items(token: str, user_id: str):
     url = f'https://api.moltin.com/v2/carts/{user_id}/items'
     headers = {
         'Authorization': f'Bearer {token}'
-    }    
+    }
     response = requests.get(url, headers=headers)
     response.raise_for_status()
-    return response.json()    
+    return response.json()
 
 
-
-def add_product_to_cart(token, user_id, product_id, quantity):
+def add_product_to_cart(token: str, user_id: str, product_id: str, quantity: int):
     url = f'https://api.moltin.com/v2/carts/{user_id}/items'
     headers = {
         'Authorization': f'Bearer {token}',
@@ -94,36 +92,37 @@ def add_product_to_cart(token, user_id, product_id, quantity):
     return response.json()
 
 
-def get_product_by_id(token, product_id):
+def get_product_by_id(token: str, product_id: str):
     url = f'https://api.moltin.com/v2/products/{product_id}'
     headers = {
         'Authorization': f'Bearer {token}',
     }
     response = requests.get(url, headers=headers)
     response.raise_for_status()
-    return response.json()  
+    return response.json()
 
-def get_photo_by_id(token, photo_id):
+
+def get_photo_by_id(token: str, photo_id: str):
     url = f'https://api.moltin.com/v2/files/{photo_id}'
     headers = {
         'Authorization': f'Bearer {token}',
     }
     response = requests.get(url, headers=headers)
     response.raise_for_status()
-    return response.json()['data']['link']['href']          
+    return response.json()['data']['link']['href']
 
 
-def remove_product_from_cart(token, user_id, product_id):
+def remove_product_from_cart(token: str, user_id: str, product_id: str):
     url = f'https://api.moltin.com/v2/carts/{user_id}/items/{product_id}'
     headers = {
         'Authorization': f'Bearer {token}',
     }
     response = requests.delete(url, headers=headers)
     response.raise_for_status()
-    return 
+    return
 
 
-def create_customer(token, user_id, user_email):
+def create_customer(token: str, user_id: str, user_email: str):
     url = 'https://api.moltin.com/v2/customers'
     headers = {
         'Authorization': f'Bearer {token}',
@@ -135,16 +134,6 @@ def create_customer(token, user_id, user_email):
             'email': user_email
         }
     }
-    response = requests.post(url ,headers=headers, json=json_data)
+    response = requests.post(url, headers=headers, json=json_data)
     response.raise_for_status()
     return response.json()
-
-
-def main():
-    env = Env()
-    env.read_env()
-    client_id = env.str('ELASTIC_PATH_CLIENT_ID')
-    client_secret = env.str('ELASTIC_PATH_CLIENT_SECRET')
-    cms_token = get_access_token(client_id, client_secret)
-
-
