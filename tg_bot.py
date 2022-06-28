@@ -9,7 +9,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, \
 
 from cms_lib import CmsAuthentication, get_all_products, get_product_by_id, \
                  get_photo_by_id, add_product_to_cart, get_cart_items, \
-                 get_cart, remove_product_from_cart, create_customer
+                 get_cart, remove_product_from_cart, get_or_create_customer
 
 
 def get_menu_keyboard(cms_token: str):
@@ -76,13 +76,16 @@ def waiting_email(update, context, cms_token):
         check_smtp=False
     )
     if is_valid_email:
-        create_customer(
+        customer_info, created = get_or_create_customer(
             cms_token,
             str(update.effective_chat.id),
             update.message.text
         )
+        text = 'Спасибо что купили рыбу'
+        if not created:
+            text += '. Рады что вам понравилось'
         update.message.reply_text(
-            text='Спасибо что купили рыбу',
+            text=text,
         )
         return 'START'
 

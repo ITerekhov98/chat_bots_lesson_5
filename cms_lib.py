@@ -122,11 +122,20 @@ def remove_product_from_cart(token: str, user_id: str, product_id: str):
     return
 
 
-def create_customer(token: str, user_id: str, user_email: str):
+def get_or_create_customer(token: str, user_id: str, user_email: str):
     url = 'https://api.moltin.com/v2/customers'
     headers = {
         'Authorization': f'Bearer {token}',
     }
+    params = {
+        'filter': f'eq(email,{user_email})'
+    }
+    response = requests.get(url, params=params, headers=headers)
+    response.raise_for_status()
+    customer_info = response.json()
+    if customer_info['data']:
+        return customer_info, False
+
     json_data = {
         'data': {
             'type': 'customer',
@@ -136,4 +145,4 @@ def create_customer(token: str, user_id: str, user_email: str):
     }
     response = requests.post(url, headers=headers, json=json_data)
     response.raise_for_status()
-    return response.json()
+    return response.json(), True
