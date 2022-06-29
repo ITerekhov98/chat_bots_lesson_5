@@ -15,10 +15,10 @@ from cms_lib import CmsAuthentication, get_all_products, get_product_by_id, \
 def get_menu_keyboard(cms_token: str):
     keyboard = []
     products_info = get_all_products(cms_token)
-    for product in products_info['data']:
-        keyboard.append(
-            [InlineKeyboardButton(product['name'], callback_data=product['id'])]
-        )
+    keyboard = [
+        [InlineKeyboardButton(product['name'], product['id'])]
+        for product in products_info['data']
+    ]
     keyboard.append(
         [InlineKeyboardButton('Корзина', callback_data='cart')]
     )

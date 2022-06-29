@@ -21,9 +21,9 @@ class CmsAuthentication:
         }
         response = requests.post(url, data=data)
         response.raise_for_status()
-        response_deserealized = response.json()
-        self.token_expiration = response_deserealized['expires']
-        self._token = response_deserealized['access_token']
+        token_details = response.json()
+        self.token_expiration = token_details['expires']
+        self._token = token_details['access_token']
         return self._token
 
 
