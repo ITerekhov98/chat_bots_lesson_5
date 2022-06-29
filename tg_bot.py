@@ -16,7 +16,7 @@ def get_menu_keyboard(cms_token: str):
     keyboard = []
     products_info = get_all_products(cms_token)
     keyboard = [
-        [InlineKeyboardButton(product['name'], product['id'])]
+        [InlineKeyboardButton(product['name'], callback_data=product['id'])]
         for product in products_info['data']
     ]
     keyboard.append(
